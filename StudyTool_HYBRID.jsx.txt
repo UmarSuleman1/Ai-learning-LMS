@@ -1,0 +1,547 @@
+import { useState, useEffect } from "react";
+
+// Past Paper Questions Database (VU Style)
+const pastPaperQuestions = {
+  MGT211: [
+    { q: "Sole proprietorship means:", opts: ["Owned by 2+ people", "Owned by ONE person", "Owned by government", "Owned by corporation"], ans: 1, exp: "Single owner business", type: "mcq", source: "VU Past Paper" },
+    { q: "Unlimited liability means:", opts: ["Limited loss", "Personal assets at risk", "No responsibility", "Government pays"], ans: 1, exp: "Owner responsible for debts", type: "mcq", source: "VU Past Paper" },
+    { q: "POLC stands for:", opts: ["Product, Operate, Lead, Control", "Planning, Organizing, Leading, Controlling", "Plan, Operate, Long, Cost", "None"], ans: 1, exp: "Management functions", type: "mcq", source: "VU Past Paper" },
+    { q: "Pakistan's economy is:", opts: ["Capitalist", "Socialist", "Mixed economy", "Planned"], ans: 2, exp: "Both private and government sectors", type: "mcq", source: "VU Past Paper" },
+    { q: "PLC longest stage:", opts: ["Introduction", "Growth", "Maturity", "Decline"], ans: 2, exp: "Maturity is longest", type: "mcq", source: "VU Past Paper" },
+  ],
+  MGT301: [
+    { q: "Marketing definition:", opts: ["Selling", "Advertising", "Meeting customer needs profitably", "Promotion"], ans: 2, exp: "Core concept", type: "mcq", source: "VU Past Paper" },
+    { q: "STP is:", opts: ["Sales, Target, Profit", "Segmentation, Targeting, Positioning", "Strategy, Tactics, Plan", "None"], ans: 1, exp: "3-step marketing strategy", type: "mcq", source: "VU Past Paper" },
+    { q: "Penetration pricing is:", opts: ["High price", "Low price for market share", "Fixed price", "Variable"], ans: 1, exp: "Entry strategy", type: "mcq", source: "VU Past Paper" },
+    { q: "Intensive distribution:", opts: ["One store", "Few stores", "Everywhere", "Online"], ans: 2, exp: "Maximum availability", type: "mcq", source: "VU Past Paper" },
+    { q: "Cognitive dissonance is:", opts: ["Before purchase", "During purchase", "After purchase doubt", "No doubt"], ans: 2, exp: "Buyer's remorse", type: "mcq", source: "VU Past Paper" },
+  ],
+  PSY101: [
+    { q: "Pavlov discovered:", opts: ["Operant conditioning", "Classical conditioning", "Observational learning", "Extinction"], ans: 1, exp: "Bell + food = salivation", type: "mcq", source: "VU Past Paper" },
+    { q: "Positive reinforcement:", opts: ["Removes bad", "Adds reward", "Adds bad", "No change"], ans: 1, exp: "Increases behavior", type: "mcq", source: "VU Past Paper" },
+    { q: "STM holds:", opts: ["Unlimited", "7±2 items", "10 items", "20 items"], ans: 1, exp: "Magic number", type: "mcq", source: "VU Past Paper" },
+    { q: "LTM stores:", opts: ["Minutes", "Hours", "Permanently", "Seconds"], ans: 2, exp: "Long-term memory", type: "mcq", source: "VU Past Paper" },
+    { q: "Maslow top need:", opts: ["Safety", "Social", "Esteem", "Self-actualization"], ans: 3, exp: "Reaching full potential", type: "mcq", source: "VU Past Paper" },
+  ],
+  CS302: [
+    { q: "AND gate: 0·1 =", opts: ["0", "1", "Undefined", "2"], ans: 0, exp: "Both must be 1", type: "mcq", source: "VU Past Paper" },
+    { q: "OR gate: 1+0 =", opts: ["0", "1", "Undefined", "2"], ans: 1, exp: "At least one 1", type: "mcq", source: "VU Past Paper" },
+    { q: "Binary 1010 =:", opts: ["8", "10", "12", "14"], ans: 1, exp: "8+2=10", type: "mcq", source: "VU Past Paper" },
+    { q: "De Morgan's (A+B)' =:", opts: ["A'·B'", "A'+B'", "A+B", "A·B"], ans: 0, exp: "NOT OR = AND NOT's", type: "mcq", source: "VU Past Paper" },
+    { q: "JK J=1,K=1 does:", opts: ["Set", "Reset", "Toggle", "No change"], ans: 2, exp: "Most useful state", type: "mcq", source: "VU Past Paper" },
+  ],
+  STA301: [
+    { q: "Mean is:", opts: ["Highest", "Sum/Count", "Middle", "Most frequent"], ans: 1, exp: "Average", type: "mcq", source: "VU Past Paper" },
+    { q: "Median is:", opts: ["Average", "Middle value", "Most frequent", "Range"], ans: 1, exp: "Center value", type: "mcq", source: "VU Past Paper" },
+    { q: "Mode is:", opts: ["Average", "Middle", "Most frequent", "Spread"], ans: 2, exp: "Common value", type: "mcq", source: "VU Past Paper" },
+    { q: "Standard deviation:", opts: ["Average", "Variance root", "Frequency", "Correlation"], ans: 1, exp: "Square root of variance", type: "mcq", source: "VU Past Paper" },
+    { q: "P-value < 0.05:", opts: ["Not significant", "Significant", "No effect", "Random"], ans: 1, exp: "Reject null hypothesis", type: "mcq", source: "VU Past Paper" },
+  ],
+};
+
+export default function StudyToolFixed() {
+  const [view, setView] = useState("home");
+  const [subject, setSubject] = useState(null);
+  const [mode, setMode] = useState("timed");
+  const [timeMinutes, setTimeMinutes] = useState(50);
+  const [sessionActive, setSessionActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [questions, setQuestions] = useState([]);
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [currentQ, setCurrentQ] = useState(null);
+  const [answer, setAnswer] = useState(null);
+  const [answered, setAnswered] = useState(false);
+  const [score, setScore] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [usedIndices, setUsedIndices] = useState(new Set());
+
+  useEffect(() => {
+    if (!sessionActive || timeLeft <= 0) return;
+    const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    return () => clearInterval(timer);
+  }, [sessionActive, timeLeft]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && sessionActive) {
+      setSessionActive(false);
+      setSessionEnded(true);
+    }
+  }, [timeLeft, sessionActive]);
+
+  // Fetch from API
+  const fetchFromAPI = async () => {
+    try {
+      setLoading(true);
+      
+      // Try using QuizzAPI
+      const url = "https://quizzapi.jToast.app/random";
+      const response = await fetch(url, { timeout: 5000 });
+      
+      if (!response.ok) throw new Error("API Error");
+      
+      const data = await response.json();
+      
+      if (data && data.question) {
+        const allOpts = [data.correct_answer, ...data.incorrect_answers].sort(() => Math.random() - 0.5);
+        return [{
+          q: data.question,
+          opts: allOpts,
+          ans: allOpts.indexOf(data.correct_answer),
+          exp: `Correct: ${data.correct_answer}`,
+          type: "mcq",
+          source: "API"
+        }];
+      }
+    } catch (err) {
+      console.log("API Error:", err);
+    }
+    
+    return null;
+  };
+
+  // Get Past Papers + API Combo
+  const getQuestions = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Get past papers first
+      let allQuestions = [...(pastPaperQuestions[subject] || [])];
+      
+      // Try to fetch 5 API questions
+      for (let i = 0; i < 5; i++) {
+        try {
+          const apiQ = await fetchFromAPI();
+          if (apiQ) {
+            allQuestions = [...allQuestions, ...apiQ];
+          }
+        } catch (e) {
+          console.log("API fetch attempt", i + 1, "failed");
+        }
+      }
+      
+      // If still no questions, use all past papers
+      if (allQuestions.length === 0) {
+        allQuestions = pastPaperQuestions[subject] || [];
+        setError("Using Past Paper Questions (API not available)");
+      }
+      
+      setQuestions(allQuestions);
+      setUsedIndices(new Set());
+      pickRandomQuestion(allQuestions, new Set());
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Using Past Paper Questions");
+      const fallback = pastPaperQuestions[subject] || [];
+      setQuestions(fallback);
+      setUsedIndices(new Set());
+      pickRandomQuestion(fallback, new Set());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pick random question
+  const pickRandomQuestion = (qs, used) => {
+    if (!qs || qs.length === 0) return;
+    
+    let unused = qs.filter((_, i) => !used.has(i));
+    if (unused.length === 0) {
+      setUsedIndices(new Set());
+      unused = qs;
+    }
+    
+    const randomIdx = Math.floor(Math.random() * unused.length);
+    const q = unused[randomIdx];
+    const actualIdx = qs.indexOf(q);
+    
+    setCurrentQ(q);
+    setAnswer(null);
+    setAnswered(false);
+    setUsedIndices(new Set(used).add(actualIdx));
+  };
+
+  const startSession = async () => {
+    await getQuestions();
+    setTimeLeft(timeMinutes * 60);
+    setSessionActive(true);
+    setScore(0);
+    setTotal(0);
+    setSessionEnded(false);
+  };
+
+  const handleAnswer = (ans) => {
+    if (answered || !currentQ) return;
+    
+    setAnswer(ans);
+    setAnswered(true);
+    
+    let isCorrect = false;
+    if (currentQ.type === "mcq") {
+      isCorrect = ans === currentQ.ans;
+    }
+    
+    if (isCorrect) setScore(score + 1);
+    setTotal(total + 1);
+  };
+
+  const nextQuestion = () => {
+    if (!questions || questions.length === 0) return;
+    pickRandomQuestion(questions, usedIndices);
+  };
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  if (view === "home") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        padding: "20px",
+        fontFamily: "Segoe UI, sans-serif",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{
+          background: "white",
+          borderRadius: "20px",
+          padding: "60px",
+          textAlign: "center",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          maxWidth: "800px"
+        }}>
+          <h1 style={{ color: "#667eea", fontSize: "40px", marginBottom: "15px" }}>🚀 FINAL EXAM PREP</h1>
+          <p style={{ color: "#666", fontSize: "16px", marginBottom: "15px" }}>
+            Past Papers + Internet Questions
+          </p>
+          <p style={{ color: "#764ba2", fontSize: "14px", marginBottom: "50px" }}>
+            ✅ VU Past Papers | 🌐 API Questions | 📊 Unlimited
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "15px", marginBottom: "50px" }}>
+            {["MGT211", "MGT301", "PSY101", "CS302", "STA301"].map((s) => (
+              <button
+                key={s}
+                onClick={() => { setSubject(s); setView("settings"); }}
+                style={{
+                  padding: "20px",
+                  background: "linear-gradient(135deg, #667eea, #764ba2)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "10px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  cursor: "pointer"
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ background: "#f0f0f0", padding: "20px", borderRadius: "10px" }}>
+            <p style={{ fontSize: "12px", color: "#666", margin: "0" }}>
+              📄 VU Past Paper Questions<br/>
+              🌐 + Internet API Questions<br/>
+              ♾️ Unlimited Practice
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "settings") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        padding: "20px",
+        fontFamily: "Segoe UI, sans-serif",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{
+          background: "white",
+          borderRadius: "20px",
+          padding: "50px",
+          maxWidth: "500px",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+        }}>
+          <h2 style={{ color: "#667eea", marginBottom: "30px" }}>Setup</h2>
+
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ fontWeight: "bold", display: "block", marginBottom: "10px" }}>Mode:</label>
+            <select value={mode} onChange={(e) => setMode(e.target.value)} style={{
+              width: "100%", padding: "10px", borderRadius: "8px", border: "2px solid #667eea", fontSize: "14px"
+            }}>
+              <option value="timed">⏱️ Timed (50 min)</option>
+              <option value="practice">📚 Practice (Unlimited)</option>
+            </select>
+          </div>
+
+          {mode === "timed" && (
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ fontWeight: "bold", display: "block", marginBottom: "10px" }}>Time (min):</label>
+              <input type="number" value={timeMinutes} onChange={(e) => setTimeMinutes(parseInt(e.target.value) || 50)} min="5" max="180" style={{
+                width: "100%", padding: "10px", borderRadius: "8px", border: "2px solid #667eea", fontSize: "14px"
+              }} />
+            </div>
+          )}
+
+          <button onClick={() => { setView("quiz"); startSession(); }} style={{
+            width: "100%", padding: "15px", background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "16px", marginBottom: "10px"
+          }}>
+            🚀 START
+          </button>
+
+          <button onClick={() => setView("home")} style={{
+            width: "100%", padding: "12px", background: "transparent", color: "#667eea", border: "2px solid #667eea", fontWeight: "bold", borderRadius: "8px", cursor: "pointer", fontSize: "14px"
+          }}>
+            ← Home
+          </button>
+
+          <div style={{ marginTop: "20px", padding: "15px", background: "#e3f2fd", borderRadius: "8px", fontSize: "12px", color: "#1565c0" }}>
+            ✅ VU Past Papers + Internet Questions<br/>
+            🔄 Auto-rotate questions
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "quiz") {
+    if (loading && (!currentQ || questions.length === 0)) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          padding: "20px",
+          fontFamily: "Segoe UI, sans-serif",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "20px",
+            padding: "60px",
+            textAlign: "center",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+          }}>
+            <div style={{ fontSize: "48px", marginBottom: "20px" }}>⏳</div>
+            <h2 style={{ color: "#667eea", marginBottom: "10px" }}>Loading Questions...</h2>
+            <p style={{ color: "#666" }}>Getting Past Papers + API Questions</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionEnded) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          padding: "20px",
+          fontFamily: "Segoe UI, sans-serif",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "20px",
+            padding: "60px",
+            textAlign: "center",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            maxWidth: "600px"
+          }}>
+            <h2 style={{ color: "#667eea", marginBottom: "20px", fontSize: "32px" }}>Done! 🎉</h2>
+            <div style={{ fontSize: "64px", color: "#764ba2", marginBottom: "20px", fontWeight: "bold" }}>
+              {total > 0 ? Math.round((score / total) * 100) : 0}%
+            </div>
+            <p style={{ fontSize: "18px", marginBottom: "30px", color: "#666" }}>
+              <strong>{score} / {total}</strong> correct
+            </p>
+
+            <button
+              onClick={() => { setView("settings"); setSessionEnded(false); setQuestions([]); setCurrentQ(null); }}
+              style={{
+                width: "100%", padding: "15px", background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", fontWeight: "bold", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "16px", marginBottom: "10px"
+              }}
+            >
+              🔄 New Session
+            </button>
+
+            <button
+              onClick={() => { setView("home"); setSubject(null); setSessionEnded(false); setQuestions([]); setCurrentQ(null); }}
+              style={{
+                width: "100%", padding: "12px", background: "transparent", color: "#667eea", border: "2px solid #667eea", fontWeight: "bold", borderRadius: "8px", cursor: "pointer", fontSize: "14px"
+              }}
+            >
+              ← Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionActive && currentQ) {
+      const answerText = currentQ.type === "mcq" ? currentQ.opts[currentQ.ans] : currentQ.ans;
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          padding: "20px",
+          fontFamily: "Segoe UI, sans-serif"
+        }}>
+          <div style={{ maxWidth: "1100px", margin: "0 auto", display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
+            <div style={{
+              background: "white",
+              borderRadius: "20px",
+              padding: "30px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+            }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "20px",
+                padding: "15px",
+                background: "#f0f0f0",
+                borderRadius: "10px",
+                fontSize: "14px"
+              }}>
+                <span><strong>{subject}</strong></span>
+                {mode === "timed" && <span style={{ fontSize: "20px", fontWeight: "bold", color: timeLeft < 60 ? "#ff4444" : "#667eea" }}>{formatTime(timeLeft)}</span>}
+                <span><strong>{score}/{total}</strong></span>
+              </div>
+
+              {error && (
+                <div style={{ background: "#fff3cd", padding: "10px", borderRadius: "8px", marginBottom: "15px", fontSize: "12px", color: "#856404" }}>
+                  💡 {error}
+                </div>
+              )}
+
+              <div style={{ background: "#f9f9f9", padding: "20px", borderRadius: "10px", marginBottom: "25px", borderLeft: "4px solid #667eea" }}>
+                <p style={{ fontSize: "16px", fontWeight: "bold", margin: "0", lineHeight: "1.6" }}>{currentQ.q}</p>
+                <div style={{ fontSize: "12px", color: "#999", marginTop: "10px" }}>
+                  {currentQ.type.toUpperCase()} | {currentQ.source}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                {currentQ.type === "mcq" && currentQ.opts.map((opt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleAnswer(i)}
+                    disabled={answered}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      marginBottom: "10px",
+                      fontSize: "14px",
+                      borderRadius: "8px",
+                      border: "2px solid #ddd",
+                      cursor: answered ? "default" : "pointer",
+                      background:
+                        answer === i
+                          ? i === currentQ.ans ? "#4CAF50" : "#ff4444"
+                          : i === currentQ.ans && answered ? "#4CAF50" : "white",
+                      color: answer === i || (i === currentQ.ans && answered) ? "white" : "black",
+                      fontWeight: answer === i ? "bold" : "normal",
+                      textAlign: "left"
+                    }}
+                  >
+                    {String.fromCharCode(65 + i)}) {opt}
+                  </button>
+                ))}
+              </div>
+
+              {answered && (
+                <>
+                  <div style={{
+                    background: answer === currentQ.ans ? "#e8f5e9" : "#ffebee",
+                    padding: "15px",
+                    borderRadius: "8px",
+                    marginBottom: "20px",
+                    borderLeft: `4px solid ${answer === currentQ.ans ? "#4CAF50" : "#ff4444"}`
+                  }}>
+                    <div style={{
+                      fontWeight: "bold",
+                      marginBottom: "10px",
+                      color: answer === currentQ.ans ? "#2e7d32" : "#c62828",
+                      fontSize: "16px"
+                    }}>
+                      {answer === currentQ.ans ? "✅ CORRECT!" : "❌ WRONG!"}
+                    </div>
+                    <div style={{ fontSize: "13px" }}>
+                      <strong>Answer:</strong> {answerText}
+                    </div>
+                    <div style={{ fontSize: "13px", marginTop: "10px" }}>
+                      <strong>Info:</strong> {currentQ.exp}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={nextQuestion}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      background: "linear-gradient(135deg, #667eea, #764ba2)",
+                      color: "white",
+                      fontWeight: "bold",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontSize: "16px"
+                    }}
+                  >
+                    ➡️ Next Question
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div style={{
+              background: "white",
+              borderRadius: "20px",
+              padding: "20px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              height: "fit-content"
+            }}>
+              <h3 style={{ color: "#667eea", marginBottom: "20px", fontSize: "16px" }}>📊 Stats</h3>
+              <div style={{ fontSize: "14px" }}>
+                <div style={{ padding: "12px", background: "#e8f5e9", borderRadius: "8px", marginBottom: "12px", fontWeight: "bold" }}>
+                  ✅ {score}
+                </div>
+                <div style={{ padding: "12px", background: "#ffebee", borderRadius: "8px", marginBottom: "12px", fontWeight: "bold" }}>
+                  ❌ {total - score}
+                </div>
+                <div style={{ padding: "12px", background: "#e3f2fd", borderRadius: "8px", fontWeight: "bold" }}>
+                  📈 {total > 0 ? Math.round((score / total) * 100) : 0}%
+                </div>
+              </div>
+
+              <div style={{ marginTop: "20px", padding: "12px", background: "#f0f0f0", borderRadius: "8px", fontSize: "11px" }}>
+                📄 Questions: {questions.length}<br/>
+                🌐 Past Papers + API
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  return null;
+}
